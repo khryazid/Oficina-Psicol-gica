@@ -1,5 +1,63 @@
-import { addDays, addMinutes, endOfDay, format, isBefore, setHours, setMinutes, startOfDay } from 'date-fns';
+import { addDays, addMinutes, isBefore, startOfDay } from 'date-fns';
 import { defaultFallbackConfig, type ClinicConfig, type ClinicDaySchedule, type ClinicBlock } from '@/lib/clinic/config';
+
+const CLINIC_TIMEZONE = 'America/Caracas';
+const CLINIC_UTC_OFFSET_MINUTES = -4 * 60;
+
+type ClinicDateParts = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+function toClinicDateParts(date: Date): ClinicDateParts {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: CLINIC_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+
+  return { year, month, day };
+}
+
+function clinicLocalToUtcDate(parts: ClinicDateParts, hours: number, minutes: number): Date {
+  const utcMs = Date.UTC(parts.year, parts.month - 1, parts.day, hours, minutes) - CLINIC_UTC_OFFSET_MINUTES * 60_000;
+  return new Date(utcMs);
+}
+
+export function parseClinicDateStamp(dateStamp: string): Date {
+  const [yearRaw, monthRaw, dayRaw] = dateStamp.split('-').map(Number);
+  if (!yearRaw || !monthRaw || !dayRaw) {
+    throw new Error('Formato de fecha inválido. Se esperaba yyyy-MM-dd');
+  }
+
+  return clinicLocalToUtcDate({ year: yearRaw, month: monthRaw, day: dayRaw }, 12, 0);
+}
+
+export function getClinicDateStamp(date: Date): string {
+  const parts = toClinicDateParts(date);
+  const mm = String(parts.month).padStart(2, '0');
+  const dd = String(parts.day).padStart(2, '0');
+  return `${parts.year}-${mm}-${dd}`;
+}
+
+export function getClinicWeekday(date: Date): string {
+  const parts = toClinicDateParts(date);
+  const weekday = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  return String(weekday);
+}
+
+export function getClinicDayBounds(date: Date): { start: Date; end: Date } {
+  const parts = toClinicDateParts(date);
+  const start = clinicLocalToUtcDate(parts, 0, 0);
+  const end = clinicLocalToUtcDate(parts, 23, 59);
+  return { start, end };
+}
 
 export interface BusyInterval {
   start: Date;
@@ -19,7 +77,8 @@ function pushInterval(intervals: BusyInterval[], start: Date, end: Date): void {
 
 function toDateTime(targetDate: Date, timeValue: string): Date {
   const [hours, minutes] = timeValue.split(':').map(Number);
-  return setMinutes(setHours(targetDate, hours), minutes);
+  const parts = toClinicDateParts(targetDate);
+  return clinicLocalToUtcDate(parts, hours, minutes);
 }
 
 function getDaySchedule(config: ClinicConfig, targetDate: Date): ClinicDaySchedule | undefined {
@@ -27,13 +86,14 @@ function getDaySchedule(config: ClinicConfig, targetDate: Date): ClinicDaySchedu
 }
 
 function buildBlockedIntervals(targetDate: Date, blocks: ClinicBlock[]): BusyInterval[] {
-  const dateStamp = format(targetDate, 'yyyy-MM-dd');
+  const dateStamp = getClinicDateStamp(targetDate);
   const dayBlocks = blocks.filter((block) => block.fecha === dateStamp);
   const intervals: BusyInterval[] = [];
 
   for (const block of dayBlocks) {
     if (block.todo_el_dia) {
-      pushInterval(intervals, startOfDay(targetDate), endOfDay(targetDate));
+      const { start, end } = getClinicDayBounds(targetDate);
+      pushInterval(intervals, start, end);
       continue;
     }
 
@@ -79,7 +139,6 @@ export function calculateAvailableSlots(params: {
     return [];
   }
 
-  const dateStamp = format(targetDate, 'yyyy-MM-dd');
   const dayStart = toDateTime(targetDate, schedule.inicio);
   const dayEnd = toDateTime(targetDate, schedule.fin);
 
@@ -87,10 +146,6 @@ export function calculateAvailableSlots(params: {
   const maximumAdvance = addDays(now, config.anticipacion_maxima_dias);
 
   if (isBefore(targetDate, startOfDay(minimumAdvance)) || !isBefore(targetDate, maximumAdvance)) {
-    return [];
-  }
-
-  if (dateStamp !== format(targetDate, 'yyyy-MM-dd')) {
     return [];
   }
 

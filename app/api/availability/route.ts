@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getCalendarClient, CLINIC_CALENDAR_ID, CLINIC_TIMEZONE } from '@/lib/google/calendar';
-import { startOfDay, parseISO, isBefore, addMinutes, format, addDays, endOfDay, setHours, setMinutes } from 'date-fns';
+import { startOfDay, parseISO, isBefore, addMinutes, addDays } from 'date-fns';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { defaultFallbackConfig, mergeClinicConfig, type ClinicConfig } from '@/lib/clinic/config';
-import { buildBusyIntervals, calculateAvailableSlots, getBookingStatuses, type BusyInterval } from '@/lib/booking/scheduling';
+import {
+    buildBusyIntervals,
+    calculateAvailableSlots,
+    getBookingStatuses,
+    getClinicDateStamp,
+    getClinicDayBounds,
+    getClinicWeekday,
+    parseClinicDateStamp,
+    type BusyInterval,
+} from '@/lib/booking/scheduling';
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +21,9 @@ export async function GET(req: Request) {
         const durationParam = searchParams.get('duration');
     if (!dateParam) return NextResponse.json({ error: 'Falta fecha' }, { status: 400 });
 
-    const targetDate = parseISO(dateParam);
+        const targetDate = /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+            ? parseClinicDateStamp(dateParam)
+            : parseISO(dateParam);
         const duracionTarget = durationParam ? parseInt(durationParam, 10) : 50;
         const today = new Date();
 
@@ -33,8 +44,8 @@ export async function GET(req: Request) {
     }
 
     const { anticipacion_minima_horas = 24, anticipacion_maxima_dias = 30 } = config;
-    const dayOfWeek = String(targetDate.getDay());
-    const formattedDate = format(targetDate, "yyyy-MM-dd");
+    const dayOfWeek = getClinicWeekday(targetDate);
+    const formattedDate = getClinicDateStamp(targetDate);
 
     // A. REGLAS DE LA FÍSICA Y LA LÓGICA (ANTICIPACIÓN V4)
     const margenMinimoAsistencia = addMinutes(today, anticipacion_minima_horas * 60);
@@ -65,11 +76,7 @@ export async function GET(req: Request) {
     }
 
     // 3. LÍMITES INTRA-DÍA (De la jornada particular)
-    const [startH, startM] = diaHabitual.inicio.split(':').map(Number);
-    const [endH, endM] = diaHabitual.fin.split(':').map(Number);
-
-    const dayStart = setMinutes(setHours(targetDate, startH), startM);
-    const dayEnd = setMinutes(setHours(targetDate, endH), endM);
+    const { start: clinicDayStart, end: clinicDayEnd } = getClinicDayBounds(targetDate);
 
     // 4. COLECCIÓN DE HORAS OCUPADAS (INTERVALOS "BUSY")
     const busyIntervals: BusyInterval[] = buildBusyIntervals(targetDate, config);
@@ -77,8 +84,8 @@ export async function GET(req: Request) {
     const { data: bookedCitas, error: bookingError } = await supabaseAdmin
       .from('citas')
       .select('fecha_inicio, fecha_fin, estado')
-            .lt('fecha_inicio', endOfDay(targetDate).toISOString())
-            .gt('fecha_fin', startOfDay(targetDate).toISOString())
+        .lt('fecha_inicio', clinicDayEnd.toISOString())
+        .gt('fecha_fin', clinicDayStart.toISOString())
       .in('estado', getBookingStatuses() as string[]);
 
     if (bookingError) {
@@ -95,8 +102,8 @@ export async function GET(req: Request) {
             try {
         const response = await client.freebusy.query({
             requestBody: {
-                timeMin: dayStart.toISOString(),
-                timeMax: dayEnd.toISOString(),
+                timeMin: clinicDayStart.toISOString(),
+                timeMax: clinicDayEnd.toISOString(),
                 timeZone: CLINIC_TIMEZONE,
                 items: [{ id: CLINIC_CALENDAR_ID }]
             }
@@ -112,7 +119,7 @@ export async function GET(req: Request) {
             }
     } else {
         // En MOCK: A modo demostración, tiramos 1 reunión random de Google Calendar falso
-        const mockBusy1Start = setMinutes(setHours(targetDate, 14), 0);
+        const mockBusy1Start = addMinutes(clinicDayStart, 14 * 60);
         busyIntervals.push({ start: mockBusy1Start, end: addMinutes(mockBusy1Start, 60) });
     }
 

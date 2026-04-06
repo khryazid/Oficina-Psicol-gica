@@ -3,8 +3,8 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { getCalendarClient, CLINIC_CALENDAR_ID, CLINIC_TIMEZONE } from '@/lib/google/calendar';
 import { mergeClinicConfig, type ClinicConfig } from '@/lib/clinic/config';
-import { buildBusyIntervals, isSlotStillValid, getBookingStatuses, type BusyInterval } from '@/lib/booking/scheduling';
-import { endOfDay, parseISO, startOfDay } from 'date-fns';
+import { buildBusyIntervals, isSlotStillValid, getBookingStatuses, getClinicDayBounds, type BusyInterval } from '@/lib/booking/scheduling';
+import { parseISO } from 'date-fns';
 
 interface BookingRequestBody {
    slot?: {
@@ -177,12 +177,13 @@ async function insertBookingRow(params: {
 
 async function buildBookingBusyIntervals(targetDate: Date, config: ClinicConfig): Promise<BusyInterval[]> {
    const busyIntervals = buildBusyIntervals(targetDate, config);
+   const { start: clinicDayStart, end: clinicDayEnd } = getClinicDayBounds(targetDate);
 
    const { data: bookedCitas, error: bookingError } = await supabaseAdmin
       .from('citas')
       .select('fecha_inicio, fecha_fin, estado')
-      .lt('fecha_inicio', endOfDay(targetDate).toISOString())
-      .gt('fecha_fin', startOfDay(targetDate).toISOString())
+      .lt('fecha_inicio', clinicDayEnd.toISOString())
+      .gt('fecha_fin', clinicDayStart.toISOString())
       .in('estado', getBookingStatuses() as string[]);
 
    if (bookingError) {
@@ -195,12 +196,10 @@ async function buildBookingBusyIntervals(targetDate: Date, config: ClinicConfig)
 
    const client = getCalendarClient();
    if (client) {
-      const dayStart = startOfDay(targetDate);
-      const dayEnd = endOfDay(targetDate);
       const response = await client.freebusy.query({
          requestBody: {
-            timeMin: dayStart.toISOString(),
-            timeMax: dayEnd.toISOString(),
+            timeMin: clinicDayStart.toISOString(),
+            timeMax: clinicDayEnd.toISOString(),
             timeZone: CLINIC_TIMEZONE,
             items: [{ id: CLINIC_CALENDAR_ID }],
          },

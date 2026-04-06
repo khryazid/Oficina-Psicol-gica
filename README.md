@@ -59,6 +59,9 @@ npm install
 - GOOGLE_APPLICATION_CREDENTIALS (solo local, ruta a archivo JSON existente)
 - GOOGLE_CALENDAR_ID (opcional, por defecto primary)
 
+Notas de agenda:
+- La disponibilidad y los slots se calculan en zona horaria fija `America/Caracas` para evitar desfases entre local, Vercel y Google Calendar.
+
 4. Levanta el entorno en desarrollo:
 
 ```bash

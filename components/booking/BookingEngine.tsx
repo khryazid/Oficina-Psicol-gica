@@ -59,7 +59,8 @@ async function refreshAvailability(
     setLoadingSlots(true);
     setAvailabilityErrorMsg('');
     try {
-        const response = await fetch(`/api/availability?date=${date.toISOString()}&duration=${service.duracion_mins}`);
+                const clinicDate = format(date, 'yyyy-MM-dd');
+                const response = await fetch(`/api/availability?date=${clinicDate}&duration=${service.duracion_mins}`);
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.error || 'No se pudo consultar disponibilidad');
