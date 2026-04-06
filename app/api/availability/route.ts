@@ -92,6 +92,7 @@ export async function GET(req: Request) {
     // 4C. Consultar a GOOGLE CALENDAR
     const client = getCalendarClient();
     if (client && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            try {
         const response = await client.freebusy.query({
             requestBody: {
                 timeMin: dayStart.toISOString(),
@@ -102,10 +103,13 @@ export async function GET(req: Request) {
         });
                 const busy = response.data.calendars?.[CLINIC_CALENDAR_ID]?.busy || [];
                 busy.forEach((interval) => {
-                        if (interval.start && interval.end) {
-                                busyIntervals.push({ start: new Date(interval.start), end: new Date(interval.end) });
-                        }
+                    if (interval.start && interval.end) {
+                        busyIntervals.push({ start: new Date(interval.start), end: new Date(interval.end) });
+                    }
         });
+            } catch (googleError) {
+                console.warn('Google Calendar freebusy fallback activado:', googleError);
+            }
     } else {
         // En MOCK: A modo demostración, tiramos 1 reunión random de Google Calendar falso
         const mockBusy1Start = setMinutes(setHours(targetDate, 14), 0);

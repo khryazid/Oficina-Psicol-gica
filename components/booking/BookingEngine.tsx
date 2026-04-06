@@ -53,16 +53,22 @@ async function refreshAvailability(
     date: Date,
     service: Servicio,
     setAvailableSlots: Dispatch<SetStateAction<TimeSlot[]>>,
-    setLoadingSlots: Dispatch<SetStateAction<boolean>>
+    setLoadingSlots: Dispatch<SetStateAction<boolean>>,
+    setAvailabilityErrorMsg: Dispatch<SetStateAction<string>>
 ): Promise<void> {
     setLoadingSlots(true);
+    setAvailabilityErrorMsg('');
     try {
         const response = await fetch(`/api/availability?date=${date.toISOString()}&duration=${service.duracion_mins}`);
         const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'No se pudo consultar disponibilidad');
+        }
         setAvailableSlots(Array.isArray(data.slots) ? data.slots : []);
     } catch (error) {
         console.error(error);
         setAvailableSlots([]);
+        setAvailabilityErrorMsg('No pudimos cargar la disponibilidad en este momento. Intenta de nuevo.');
     } finally {
         setLoadingSlots(false);
     }
@@ -78,6 +84,7 @@ export function BookingEngine() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+    const [availabilityErrorMsg, setAvailabilityErrorMsg] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
 
   // Estados Reserva FASE 1
@@ -100,7 +107,7 @@ export function BookingEngine() {
 
     // 1. Cargar el Catálogo y Tasas
     useEffect(() => {
-         fetch('/api/admin/config')
+         fetch('/api/public/config')
              .then(res => res.json())
              .then(data => {
                      if (data.servicios) setServicios(data.servicios);
@@ -118,8 +125,9 @@ export function BookingEngine() {
     if (selectedDate && selectedService) {
             setSelectedSlot(null);
             setBookingErrorMsg('');
+            setAvailabilityErrorMsg('');
             setBookingStatus('idle');
-            void refreshAvailability(selectedDate, selectedService, setAvailableSlots, setLoadingSlots);
+            void refreshAvailability(selectedDate, selectedService, setAvailableSlots, setLoadingSlots, setAvailabilityErrorMsg);
         } else {
             setAvailableSlots([]);
     }
@@ -145,7 +153,7 @@ export function BookingEngine() {
                      setBookingErrorMsg(data.message || 'Ese horario ya no está disponible.');
                      setSelectedSlot(null);
                      if (selectedDate && selectedService) {
-                         void refreshAvailability(selectedDate, selectedService, setAvailableSlots, setLoadingSlots);
+                         void refreshAvailability(selectedDate, selectedService, setAvailableSlots, setLoadingSlots, setAvailabilityErrorMsg);
                      }
              } else {
                      setBookingStatus('error');
@@ -401,6 +409,7 @@ export function BookingEngine() {
         
         {!selectedDate && <div className="flex-grow flex items-center justify-center text-muted-foreground italic h-40 bg-secondary/20 rounded-xl border border-dashed text-sm">Dicta un día a la izquierda</div>}
         {selectedDate && loadingSlots && <div className="flex-grow flex items-center justify-center text-primary h-40 font-medium animate-pulse text-sm">Trazando bloques disponibles según reglas de anticipación...</div>}
+        {selectedDate && !loadingSlots && availabilityErrorMsg && <div className="flex-grow flex items-center justify-center text-amber-700 text-center h-40 bg-amber-50 rounded-xl border border-amber-200 p-6 text-sm">{availabilityErrorMsg}</div>}
         {selectedDate && !loadingSlots && !selectedSlot && availableSlots.length === 0 && <div className="flex-grow flex flex-col items-center justify-center text-muted-foreground text-center h-40 bg-red-50/50 rounded-xl border border-red-100 p-6 opacity-70"><span className="text-xl mb-1">🗓️</span>Jornada Inhabilitada. Límite de pacientes superado o Anticipación restringida.</div>}
         {bookingErrorMsg && bookingStatus !== 'submitting' && (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
