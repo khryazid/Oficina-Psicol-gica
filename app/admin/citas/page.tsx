@@ -14,6 +14,14 @@ interface Cita {
     pago: Pago[];
 }
 
+function getValorCita(cita: Cita): number {
+    return cita.precio_final || cita.pago?.[0]?.monto_recibido || 0;
+}
+
+function getServicioCita(cita: Cita): string {
+    return cita.servicio_nombre || 'Servicio General';
+}
+
 export default function AdminCitasDashboard() {
     const [citas, setCitas] = useState<Cita[]>([]);
     const [loading, setLoading] = useState(true);
@@ -172,7 +180,7 @@ export default function AdminCitasDashboard() {
                      {pendientes.map(cita => {
                          const fcha = cita.fecha_inicio ? parseISO(cita.fecha_inicio) : new Date(cita.creado_en);
                          const isFisico = cita.pago?.[0]?.metodo === 'efectivo';
-                         const valorDolar = cita.precio_final || cita.pago?.[0]?.monto_recibido || 0;
+                         const valorDolar = getValorCita(cita);
                          const calculoBs = (valorDolar * bcvRate).toFixed(2);
                          
                          return (
@@ -187,7 +195,7 @@ export default function AdminCitasDashboard() {
                                      {cita.paciente?.telefono && <p className="text-sm font-mono text-primary mt-1">📱 {cita.paciente.telefono}</p>}
                                  </div>
                                  <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-                                     <p className="font-bold text-primary">{cita.servicio_nombre || 'Servicio General'}</p>
+                                     <p className="font-bold text-primary">{getServicioCita(cita)}</p>
                                      <p className="font-bold font-mono text-sm mt-1">{format(fcha, "EEEE dd 'de' MMM, hh:mm a", { locale: es })}</p>
                                  </div>
                              </div>
@@ -251,7 +259,7 @@ export default function AdminCitasDashboard() {
                          const fcha = cita.fecha_inicio ? parseISO(cita.fecha_inicio) : new Date(cita.creado_en);
                          const isExpanded = expandedId === cita.id;
                          const isReprogramando = reprogramandoId === cita.id;
-                         const valorDolar = cita.precio_final || 0;
+                         const valorDolar = getValorCita(cita);
                          const calculoBs = (valorDolar * bcvRate).toFixed(2);
                          
                          return (
@@ -273,7 +281,7 @@ export default function AdminCitasDashboard() {
                                  <div className="bg-green-50/50 rounded-xl p-4 border border-green-100/50 mb-3">
                                      <div className="flex justify-between items-center">
                                          <div>
-                                             <p className="font-bold text-green-800 text-sm">{cita.servicio_nombre || 'Servicio'}</p>
+                                             <p className="font-bold text-green-800 text-sm">{getServicioCita(cita)}</p>
                                              <p className="font-mono text-sm font-bold mt-1">{format(fcha, "EEEE dd 'de' MMMM, hh:mm a", { locale: es })}</p>
                                          </div>
                                          <div className="text-right">
@@ -337,7 +345,7 @@ export default function AdminCitasDashboard() {
                          {canceladas.slice(0, 8).map(cita => (
                              <div key={cita.id} className="bg-card border border-red-100/50 rounded-xl p-3 text-xs">
                                  <p className="font-bold truncate">{getNombre(cita.paciente)}</p>
-                                 <p className="text-muted-foreground truncate">{cita.servicio_nombre}</p>
+                                 <p className="text-muted-foreground truncate">{getServicioCita(cita)}</p>
                                  <p className="font-mono text-muted-foreground mt-1">{cita.fecha_inicio ? format(parseISO(cita.fecha_inicio), 'dd MMM, hh:mm a', { locale: es }) : 'Sin fecha'}</p>
                                  <Button onClick={()=>changeStatus(cita.id, 'confirmed')} variant="ghost" size="sm" className="w-full mt-2 text-[10px] hover:bg-green-50 hover:text-green-600">♻️ Restaurar</Button>
                              </div>

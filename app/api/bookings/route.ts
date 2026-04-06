@@ -152,6 +152,28 @@ async function insertBookingRow(params: {
       throw completeInsert.error;
    }
 
+   const withoutServiceIdInsert = await supabaseAdmin
+      .from('citas')
+      .insert({
+         paciente_id: pacienteId,
+         calendly_event_id: provisionalGoogleEventId,
+         fecha_inicio: slotStart,
+         fecha_fin: slotEnd,
+         estado: 'pending_payment',
+         servicio_nombre: servicioNombre,
+         precio_final: servicioPrecio,
+      })
+      .select('id')
+      .single();
+
+   if (!withoutServiceIdInsert.error && withoutServiceIdInsert.data?.id) {
+      return withoutServiceIdInsert.data.id;
+   }
+
+   if (withoutServiceIdInsert.error?.code === '23P01') {
+      throw withoutServiceIdInsert.error;
+   }
+
    const fallbackInsert = await supabaseAdmin
       .from('citas')
       .insert({
