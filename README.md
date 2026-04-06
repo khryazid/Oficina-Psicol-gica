@@ -133,6 +133,11 @@ npm run supabase:stop
 - En Vercel, asegúrate de configurar las mismas variables de entorno que en local.
 - No publiques claves de service role en el frontend ni en repositorios públicos.
 
+Notas de Google Calendar:
+- Si usas Service Account, comparte el calendario del admin con el correo de la service account (permiso: "Make changes to events").
+- Configura `GOOGLE_CALENDAR_ID` con el ID real de ese calendario (no siempre `primary`).
+- Al confirmar una cita en admin, el sistema envía invitación al email del paciente (`sendUpdates: all`) para que aparezca también en su calendario.
+
 ## Estructura relevante
 
 - API routes: [app/api](app/api)

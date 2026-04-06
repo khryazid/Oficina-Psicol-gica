@@ -8,3 +8,4 @@
 - [x] Ejecutar reset de datos operativos para inicio con cliente nuevo, conservando admin.
 - [x] Sembrar configuración clínica inicial después del reset.
 - [x] Corregir desfase horario UTC en disponibilidad/reservas para respetar jornada clínica (Caracas).
+- [x] Sincronizar Google Calendar al confirmar/cancelar citas e invitar al paciente por email.
