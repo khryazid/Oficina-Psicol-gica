@@ -55,9 +55,9 @@ export async function POST(request: Request) {
       throw fetchError;
     }
 
-    const hasCurrentRecord = Boolean(fetchCurrent?.id);
-    const result = hasCurrentRecord
-      ? await supabaseAdmin.from('configuracion_clinica').update(payload).eq('id', fetchCurrent.id)
+    const currentConfigId = fetchCurrent?.id ?? null;
+    const result = currentConfigId
+      ? await supabaseAdmin.from('configuracion_clinica').update(payload).eq('id', currentConfigId)
       : await supabaseAdmin.from('configuracion_clinica').insert([payload]);
 
     if (result.error && result.error.code === '42P01') {

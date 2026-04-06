@@ -402,7 +402,7 @@ export function BookingEngine() {
         {!selectedDate && <div className="flex-grow flex items-center justify-center text-muted-foreground italic h-40 bg-secondary/20 rounded-xl border border-dashed text-sm">Dicta un día a la izquierda</div>}
         {selectedDate && loadingSlots && <div className="flex-grow flex items-center justify-center text-primary h-40 font-medium animate-pulse text-sm">Trazando bloques disponibles según reglas de anticipación...</div>}
         {selectedDate && !loadingSlots && !selectedSlot && availableSlots.length === 0 && <div className="flex-grow flex flex-col items-center justify-center text-muted-foreground text-center h-40 bg-red-50/50 rounded-xl border border-red-100 p-6 opacity-70"><span className="text-xl mb-1">🗓️</span>Jornada Inhabilitada. Límite de pacientes superado o Anticipación restringida.</div>}
-        {bookingErrorMsg && bookingStatus !== 'success' && bookingStatus !== 'submitting' && (
+        {bookingErrorMsg && bookingStatus !== 'submitting' && (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 {bookingErrorMsg}
             </div>

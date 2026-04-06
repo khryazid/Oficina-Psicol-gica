@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
 
 export const metadata: Metadata = {
@@ -45,7 +46,9 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <AdminLoginForm />
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando acceso...</p>}>
+              <AdminLoginForm />
+            </Suspense>
 
             <div className="mt-6 text-sm text-muted-foreground">
               <Link href="/" className="font-medium text-primary hover:underline">
