@@ -1,38 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Oficina Psicológica - Sistema de Citas
 
-## Refactor Status
+Aplicación web para gestionar reservas clínicas, pagos y administración operativa de una consulta psicológica.
 
-- Rutas admin protegidas con validación de sesión Supabase y rol `psicologo`.
-- Login administrativo disponible en `/login` con cookies de sesión para el panel.
-- `/admin` ahora funciona como hub de entrada del panel y redirige con navegación clara hacia citas y horarios.
-- Reservas endurecidas con validación atómica y respuesta `409` cuando un slot ya fue tomado.
-- El endpoint de pagos fue endurecido con validación de cita existente y errores HTTP consistentes.
-- Landing principal modularizada en `components/sections/` con layout global de ancho máximo.
-- La UI de reservas conserva el formulario y sugiere otro horario cuando ocurre un conflicto.
+Stack principal:
+- Next.js 16 (App Router)
+- TypeScript
+- Supabase (Auth + Postgres)
+- Tailwind CSS
 
-## Crear Admin
+## Qué puede hacer la app
 
-Para crear el usuario administrador, ejecuta:
+- Reserva de citas por pacientes desde la web pública.
+- Disponibilidad con validación de conflicto para evitar overbooking.
+- Flujo de pago y conciliación administrativa.
+- Panel admin protegido con sesión y rutas restringidas.
+
+## Rutas principales
+
+- Sitio público: / 
+- Servicios: /servicios
+- Login administrativo: /login
+- Hub admin: /admin
+- Gestión de citas (admin): /admin/citas
+- Configuración clínica (admin): /admin/horarios
+
+## Acceso de prueba (admin)
+
+Credenciales iniciales de demo:
+
+- Email: admin@test.com
+- Clave: admin123456
+
+Importante:
+- Cambia estas credenciales al poner la app en producción.
+
+## Requisitos previos
+
+- Node.js 20+
+- npm
+- Proyecto Supabase activo
+
+## Instalación local paso a paso
+
+1. Clona el repositorio.
+2. Instala dependencias:
+
+```bash
+npm install
+```
+
+3. Crea un archivo .env.local a partir de [.env.example](.env.example) y completa:
+
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+- SUPABASE_SERVICE_ROLE_KEY
+- GOOGLE_APPLICATION_CREDENTIALS (opcional para Google Calendar)
+
+4. Levanta el entorno en desarrollo:
+
+```bash
+npm run dev
+```
+
+5. Abre http://localhost:3000
+
+## Cómo probar rápido (flujo completo)
+
+1. Entra a /login con el admin de prueba.
+2. Verifica el panel en /admin.
+3. Desde el sitio público, intenta crear una reserva.
+4. Valida en /admin/citas que la cita aparece para conciliación.
+5. Cambia horarios y servicios en /admin/horarios y vuelve a probar disponibilidad.
+
+## Scripts útiles
+
+### Desarrollo
+
+```bash
+npm run dev
+npm run build
+npm run start
+```
+
+### Administración de datos
+
+Crear admin:
 
 ```bash
 npm run admin:create
 ```
 
-El script usa `NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` del entorno y asigna el rol `psicologo` al usuario creado.
-Por defecto usa `admin@test.com` y `admin123456` como credenciales iniciales si no pasas argumentos.
-
-## Reset de Datos (Cliente Nuevo)
-
-Para limpiar los datos operativos y dejar la base como arranque para un cliente nuevo, ejecuta:
+Reset para iniciar con cliente nuevo (mantiene admin@test.com):
 
 ```bash
 npm run data:reset-client
 ```
 
-Este reset elimina registros de `pagos`, `citas`, `expedientes_clinicos`, `pacientes` y `configuracion_clinica`.
-Tambien elimina usuarios de Auth excepto `admin@test.com` (o el email que pases como primer argumento al script).
-
-Luego de limpiar, puedes sembrar una configuración operativa inicial con:
+Sembrar configuración inicial después del reset:
 
 ```bash
 npm run data:seed-initial-config
@@ -40,49 +104,32 @@ npm run data:seed-initial-config
 
 ## Supabase CLI
 
-Para trabajar con Supabase localmente, instala primero el CLI y luego enlaza el proyecto:
+El repo ya tiene configuración en [supabase/config.toml](supabase/config.toml).
+
+Si usas CLI con npx:
 
 ```bash
-npm install -g supabase
-supabase login
-supabase link --project-ref <tu-project-ref>
-supabase start
+npx -y supabase@2.85.0 login
+npx -y supabase@2.85.0 link --project-ref <tu-project-ref>
 ```
 
-El archivo [supabase/config.toml](supabase/config.toml) ya está preparado para las migraciones del repo.
-Si vas a usar variables locales, copia [\.env.example](.env.example) a `.env.local` y completa los valores.
-
-## Getting Started
-
-First, run the development server:
+Opcional con scripts npm (si tienes supabase instalado global):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run supabase:status
+npm run supabase:start
+npm run supabase:stop
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Notas de despliegue
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- La app compila correctamente con npm run build.
+- En Vercel, asegúrate de configurar las mismas variables de entorno que en local.
+- No publiques claves de service role en el frontend ni en repositorios públicos.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estructura relevante
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- API routes: [app/api](app/api)
+- Panel admin: [app/admin](app/admin)
+- Booking engine: [components/booking/BookingEngine.tsx](components/booking/BookingEngine.tsx)
+- Scripts de mantenimiento: [scripts](scripts)
