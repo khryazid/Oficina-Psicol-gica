@@ -54,7 +54,10 @@ npm install
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
-- GOOGLE_APPLICATION_CREDENTIALS (opcional para Google Calendar)
+- GOOGLE_SERVICE_ACCOUNT_JSON (recomendado en Vercel)
+- GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 (alternativa al JSON inline)
+- GOOGLE_APPLICATION_CREDENTIALS (solo local, ruta a archivo JSON existente)
+- GOOGLE_CALENDAR_ID (opcional, por defecto primary)
 
 4. Levanta el entorno en desarrollo:
 

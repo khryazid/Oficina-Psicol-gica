@@ -194,7 +194,7 @@ async function buildBookingBusyIntervals(targetDate: Date, config: ClinicConfig)
    });
 
    const client = getCalendarClient();
-   if (client && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+   if (client) {
       const dayStart = startOfDay(targetDate);
       const dayEnd = endOfDay(targetDate);
       const response = await client.freebusy.query({
@@ -296,7 +296,7 @@ export async function POST(req: Request) {
       let googleEventId = provisionalGoogleEventId;
 
       try {
-         if (client && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+         if (client) {
             const eventData = {
                summary: `${servicio_nombre || 'Cita'} - ${name}`,
                description: `Estado: Pendiente de Pago.\nServicio: ${servicio_nombre} ($${servicio_precio})\nPaciente: ${name} (${email})\nAgendado vía App In-House.`,

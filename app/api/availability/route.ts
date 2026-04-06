@@ -91,7 +91,7 @@ export async function GET(req: Request) {
 
     // 4C. Consultar a GOOGLE CALENDAR
     const client = getCalendarClient();
-    if (client && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        if (client) {
             try {
         const response = await client.freebusy.query({
             requestBody: {
