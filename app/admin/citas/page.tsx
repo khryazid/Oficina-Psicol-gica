@@ -25,6 +25,7 @@ function getServicioCita(cita: Cita): string {
 export default function AdminCitasDashboard() {
     const [citas, setCitas] = useState<Cita[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [actioningId, setActioningId] = useState<string | null>(null);
     const [bcvRate, setBcvRate] = useState<number>(36.50);
 

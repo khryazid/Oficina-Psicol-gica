@@ -10,3 +10,4 @@
 - [x] Corregir desfase horario UTC en disponibilidad/reservas para respetar jornada clínica (Caracas).
 - [x] Sincronizar Google Calendar al confirmar/cancelar citas e invitar al paciente por email.
 - [x] Mostrar valores de citas en admin con fallback a pagos y preservar servicio/precio al crear reserva.
+- [x] Hacer lectura de citas en admin robusta sin joins embebidos de PostgREST y mostrar error real en UI.

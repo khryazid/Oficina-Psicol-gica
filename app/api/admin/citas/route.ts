@@ -97,21 +97,61 @@ export async function GET(request: Request) {
             return authFailure;
         }
 
-        const { data, error } = await supabaseAdmin
+        const { data: citasBase, error: citasError } = await supabaseAdmin
             .from('citas')
-            .select(`
-                *,
-                paciente:pacientes(*),
-                pago:pagos(*)
-            `)
+            .select('*')
             .order('creado_en', { ascending: false });
 
-        if (error) {
-            console.error('Citas GET DB Error:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+        if (citasError) {
+            console.error('Citas GET DB Error:', citasError);
+            return NextResponse.json({ error: citasError.message }, { status: 500 });
         }
 
-        return NextResponse.json({ citas: data }, { status: 200 });
+        const citas = citasBase ?? [];
+        if (citas.length === 0) {
+            return NextResponse.json({ citas: [] }, { status: 200 });
+        }
+
+        const pacienteIds = Array.from(new Set(citas.map((cita) => cita.paciente_id).filter(Boolean)));
+        const citaIds = citas.map((cita) => cita.id);
+
+        const [{ data: pacientes, error: pacientesError }, { data: pagos, error: pagosError }] = await Promise.all([
+            pacienteIds.length > 0
+                ? supabaseAdmin.from('pacientes').select('*').in('id', pacienteIds)
+                : Promise.resolve({ data: [], error: null }),
+            citaIds.length > 0
+                ? supabaseAdmin.from('pagos').select('*').in('cita_id', citaIds)
+                : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        if (pacientesError) {
+            console.error('Citas GET pacientes Error:', pacientesError);
+            return NextResponse.json({ error: pacientesError.message }, { status: 500 });
+        }
+
+        if (pagosError) {
+            console.error('Citas GET pagos Error:', pagosError);
+            return NextResponse.json({ error: pagosError.message }, { status: 500 });
+        }
+
+        const pacientesById = new Map((pacientes ?? []).map((paciente) => [paciente.id, paciente]));
+        const pagosByCita = new Map<string, unknown[]>();
+
+        for (const pago of pagos ?? []) {
+            const citaId = (pago as { cita_id?: string }).cita_id;
+            if (!citaId) continue;
+            const current = pagosByCita.get(citaId) ?? [];
+            current.push(pago);
+            pagosByCita.set(citaId, current);
+        }
+
+        const hydratedCitas = citas.map((cita) => ({
+            ...cita,
+            paciente: pacientesById.get(cita.paciente_id) ?? null,
+            pago: pagosByCita.get(cita.id) ?? [],
+        }));
+
+        return NextResponse.json({ citas: hydratedCitas }, { status: 200 });
     } catch (error: unknown) {
         console.error('Citas Admin Route Error:', error);
         return serverErrorResponse(error);
@@ -183,7 +223,7 @@ export async function PATCH(request: Request) {
         if (estado_nuevo) {
             const { data: citaRow, error: citaError } = await supabaseAdmin
                 .from('citas')
-                .select('id, fecha_inicio, fecha_fin, servicio_nombre, precio_final, calendly_event_id, paciente:pacientes(email, nombre_completo)')
+                .select('id, paciente_id, fecha_inicio, fecha_fin, servicio_nombre, precio_final, calendly_event_id')
                 .eq('id', id)
                 .single();
 
@@ -191,7 +231,26 @@ export async function PATCH(request: Request) {
                 throw citaError;
             }
 
-            const syncedGoogleEventId = await syncCalendarForStatus(citaRow as CitaCalendarData, estado_nuevo);
+            let paciente: CalendarPacienteData | null = null;
+            const pacienteId = (citaRow as { paciente_id?: string }).paciente_id;
+            if (pacienteId) {
+                const { data: pacienteRow, error: pacienteError } = await supabaseAdmin
+                    .from('pacientes')
+                    .select('email, nombre_completo')
+                    .eq('id', pacienteId)
+                    .single();
+
+                if (pacienteError && pacienteError.code !== 'PGRST116') {
+                    throw pacienteError;
+                }
+
+                paciente = pacienteRow ?? null;
+            }
+
+            const syncedGoogleEventId = await syncCalendarForStatus({
+                ...(citaRow as CitaCalendarData),
+                paciente,
+            }, estado_nuevo);
 
             const { error } = await supabaseAdmin
                 .from('citas')
