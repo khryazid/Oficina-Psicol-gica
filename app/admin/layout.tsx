@@ -16,6 +16,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <Link href="/admin/horarios" className="text-sm font-bold bg-secondary hover:bg-secondary/60 text-secondary-foreground px-4 py-2 rounded-xl transition-colors">
                             ⚙️ Horarios y Banco
                         </Link>
+                        <a href="/api/admin/logout" className="text-sm font-bold bg-background hover:bg-muted text-foreground px-4 py-2 rounded-xl transition-colors border border-border/60">
+                            Salir
+                        </a>
                         <a href="/" target="_blank" className="text-[10px] font-bold uppercase text-primary/70 hover:text-primary px-2 py-2 flex items-center">Ver Perfil Público ↗</a>
                     </div>
                 </div>

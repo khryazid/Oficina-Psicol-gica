@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "admin:create": "node scripts/create-admin-user.mjs",
+    "data:reset-client": "node scripts/reset-client-data.mjs",
+    "data:seed-initial-config": "node scripts/seed-initial-config.mjs",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:status": "supabase status",
+    "supabase:link": "supabase link"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
@@ -23,6 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
+    "supabase": "^2.85.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

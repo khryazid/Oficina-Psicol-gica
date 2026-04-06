@@ -1,31 +1,35 @@
 import { NextResponse } from 'next/server';
 import { getCalendarClient, CLINIC_CALENDAR_ID, CLINIC_TIMEZONE } from '@/lib/google/calendar';
-import { startOfDay, endOfDay, setHours, setMinutes, parseISO, isBefore, addMinutes, format, addDays } from 'date-fns';
+import { startOfDay, parseISO, isBefore, addMinutes, format, addDays, endOfDay, setHours, setMinutes } from 'date-fns';
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { defaultFallbackConfig } from '@/app/api/admin/config/route';
+import { defaultFallbackConfig, mergeClinicConfig, type ClinicConfig } from '@/lib/clinic/config';
+import { buildBusyIntervals, calculateAvailableSlots, getBookingStatuses, type BusyInterval } from '@/lib/booking/scheduling';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get('date');
-    const durationParam = searchParams.get('duration'); // NUEVO
+        const durationParam = searchParams.get('duration');
     if (!dateParam) return NextResponse.json({ error: 'Falta fecha' }, { status: 400 });
 
     const targetDate = parseISO(dateParam);
-    const duracionTarget = durationParam ? parseInt(durationParam, 10) : 50; // Fallback si no llega el parametro
-    const today = new Date();
+        const duracionTarget = durationParam ? parseInt(durationParam, 10) : 50;
+        const today = new Date();
 
-    // 1. OBTENER CONFIGURACIÓN DEL PSICOLOGO V3
-    let config: any = { ...defaultFallbackConfig };
+        let config: ClinicConfig = defaultFallbackConfig;
 
-    const { data: dbConfig } = await supabaseAdmin
+        const { data: dbConfig, error: configError } = await supabaseAdmin
         .from('configuracion_clinica')
         .select('*')
         .limit(1)
         .single();
-    
+
+        if (configError && configError.code !== 'PGRST116' && configError.code !== '42P01') {
+            throw configError;
+        }
+
     if (dbConfig) {
-        config = { ...config, ...dbConfig };
+            config = mergeClinicConfig(dbConfig as Partial<ClinicConfig>);
     }
 
     const { anticipacion_minima_horas = 24, anticipacion_maxima_dias = 30 } = config;
@@ -41,11 +45,15 @@ export async function GET(req: Request) {
         return NextResponse.json({ slots: [] }, { status: 200 });
     }
 
-    const diaHabitual = config.horario_habitual[dayOfWeek as keyof typeof config.horario_habitual];
+    const diaHabitual = config.horario_habitual[dayOfWeek];
+
+    if (!diaHabitual) {
+      return NextResponse.json({ slots: [] }, { status: 200 });
+    }
 
     // Buscar "Overrrides" o bloqueos absolutos de la fecha exacta
-    const bloqueoDelDia = config.bloqueos_especificos.filter((b: any) => b.fecha === formattedDate);
-    const esBloqueoTotal = bloqueoDelDia.some((b: any) => b.todo_el_dia === true);
+    const bloqueoDelDia = config.bloqueos_especificos.filter((block) => block.fecha === formattedDate);
+    const esBloqueoTotal = bloqueoDelDia.some((block) => block.todo_el_dia === true);
 
     // 2. EXCLUSIÓN DURA
     if (
@@ -64,30 +72,21 @@ export async function GET(req: Request) {
     const dayEnd = setMinutes(setHours(targetDate, endH), endM);
 
     // 4. COLECCIÓN DE HORAS OCUPADAS (INTERVALOS "BUSY")
-    let busyIntervals: {start: Date, end: Date}[] = [];
+    const busyIntervals: BusyInterval[] = buildBusyIntervals(targetDate, config);
 
-    // 4A. Incorporar Descansos fijos del día habitual (Almuerzos, Pausas activas)
-    if (diaHabitual.descansos && Array.isArray(diaHabitual.descansos)) {
-        diaHabitual.descansos.forEach((d: any) => {
-            const [dsH, dsM] = d.inicio.split(':').map(Number);
-            const [deH, deM] = d.fin.split(':').map(Number);
-            busyIntervals.push({
-                start: setMinutes(setHours(targetDate, dsH), dsM),
-                end: setMinutes(setHours(targetDate, deH), deM)
-            });
-        });
+    const { data: bookedCitas, error: bookingError } = await supabaseAdmin
+      .from('citas')
+      .select('fecha_inicio, fecha_fin, estado')
+            .lt('fecha_inicio', endOfDay(targetDate).toISOString())
+            .gt('fecha_fin', startOfDay(targetDate).toISOString())
+      .in('estado', getBookingStatuses() as string[]);
+
+    if (bookingError) {
+      throw bookingError;
     }
 
-    // 4B. Incorporar Bloqueos Parciales Específicos para hoy (Medio día del 24 Dic, etc)
-    bloqueoDelDia.forEach((b: any) => {
-        if (!b.todo_el_dia && b.inicio && b.fin) {
-            const [bsH, bsM] = b.inicio.split(':').map(Number);
-            const [beH, beM] = b.fin.split(':').map(Number);
-            busyIntervals.push({
-                start: setMinutes(setHours(targetDate, bsH), bsM),
-                end: setMinutes(setHours(targetDate, beH), beM)
-            });
-        }
+    bookedCitas?.forEach((cita) => {
+      busyIntervals.push({ start: new Date(cita.fecha_inicio), end: new Date(cita.fecha_fin) });
     });
 
     // 4C. Consultar a GOOGLE CALENDAR
@@ -101,9 +100,11 @@ export async function GET(req: Request) {
                 items: [{ id: CLINIC_CALENDAR_ID }]
             }
         });
-        const busy = response.data.calendars?.[CLINIC_CALENDAR_ID]?.busy || [];
-        busy.forEach((b: any) => {
-            busyIntervals.push({ start: new Date(b.start), end: new Date(b.end) });
+                const busy = response.data.calendars?.[CLINIC_CALENDAR_ID]?.busy || [];
+                busy.forEach((interval) => {
+                        if (interval.start && interval.end) {
+                                busyIntervals.push({ start: new Date(interval.start), end: new Date(interval.end) });
+                        }
         });
     } else {
         // En MOCK: A modo demostración, tiramos 1 reunión random de Google Calendar falso
@@ -112,34 +113,18 @@ export async function GET(req: Request) {
     }
 
     // 5. CÁLCULO MÁSTER DE HUECOS CLÍNICOS (Considerando los buffers)
-    const availableSlots = [];
-    let currentSlotStart = dayStart;
-
-    while (isBefore(currentSlotStart, dayEnd)) {
-        // ¿La sesión de N minutos cabe en este espacio antes de cerrar la clínica?
-        const currentSlotEnd = addMinutes(currentSlotStart, duracionTarget);
-        if (isBefore(dayEnd, currentSlotEnd)) break;
-
-        // Comparamos el Slot Deseado contra todos los intervalos bloqueados recolectados
-        // Regla: No se pueden "pisar"
-        const isColliding = busyIntervals.some(busy => (currentSlotStart < busy.end && currentSlotEnd > busy.start));
-        const isPastNow = isBefore(currentSlotStart, today);
-
-        if (!isColliding && !isPastNow) {
-            availableSlots.push({ start: currentSlotStart.toISOString(), end: currentSlotEnd.toISOString() });
-            
-            // Si agendamos uno disponible, le damos su bloque de Descanso Clínico antes de calcular el siguiente
-            currentSlotStart = addMinutes(currentSlotEnd, config.tiempo_descanso_mins);
-        } else {
-            // Si choca con un evento o ya pasó, "deslizamos" el buscador al reloj buscando huecos finamente cada 15 min.
-            currentSlotStart = addMinutes(currentSlotStart, 15);
-        }
-    }
+        const availableSlots = calculateAvailableSlots({
+            targetDate,
+            durationMinutes: duracionTarget,
+            config,
+            busyIntervals,
+            now: today,
+        });
 
     return NextResponse.json({ slots: availableSlots }, { status: 200 });
 
-  } catch (err) {
-    console.error("Availability Error:", err);
+    } catch (error: unknown) {
+        console.error('Availability Error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { format, addMonths, subMonths, isSameMonth, startOfMonth, startOfWeek, endOfMonth, endOfWeek, isBefore, addDays, startOfDay, parseISO, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
@@ -49,6 +49,25 @@ const codigosPais = [
   { code: '+351', flag: '🇵🇹', pais: 'PT' },
 ];
 
+async function refreshAvailability(
+    date: Date,
+    service: Servicio,
+    setAvailableSlots: Dispatch<SetStateAction<TimeSlot[]>>,
+    setLoadingSlots: Dispatch<SetStateAction<boolean>>
+): Promise<void> {
+    setLoadingSlots(true);
+    try {
+        const response = await fetch(`/api/availability?date=${date.toISOString()}&duration=${service.duracion_mins}`);
+        const data = await response.json();
+        setAvailableSlots(Array.isArray(data.slots) ? data.slots : []);
+    } catch (error) {
+        console.error(error);
+        setAvailableSlots([]);
+    } finally {
+        setLoadingSlots(false);
+    }
+}
+
 export function BookingEngine() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [bancosConfig, setBancosConfig] = useState<BancosConfig | null>(null);
@@ -62,7 +81,8 @@ export function BookingEngine() {
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
 
   // Estados Reserva FASE 1
-  const [bookingStatus, setBookingStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+    const [bookingStatus, setBookingStatus] = useState<'idle' | 'submitting' | 'success' | 'error' | 'conflict'>('idle');
+    const [bookingErrorMsg, setBookingErrorMsg] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phoneCodigo, setPhoneCodigo] = useState('+58');
@@ -78,36 +98,37 @@ export function BookingEngine() {
   const [telefonoOrigen, setTelefonoOrigen] = useState("");
   const [referencia, setReferencia] = useState("");
 
-  // 1. Cargar el Catálogo y Tasas
-  useEffect(() => {
-     fetch('/api/admin/config')
-       .then(res => res.json())
-       .then(data => {
-           if (data.servicios) setServicios(data.servicios);
-           if (data.datos_bancarios) setBancosConfig(data.datos_bancarios);
-       }).catch(e => console.error("Error trayendo cátalogo:", e));
+    // 1. Cargar el Catálogo y Tasas
+    useEffect(() => {
+         fetch('/api/admin/config')
+             .then(res => res.json())
+             .then(data => {
+                     if (data.servicios) setServicios(data.servicios);
+                     if (data.datos_bancarios) setBancosConfig(data.datos_bancarios);
+             }).catch(e => console.error("Error trayendo cátalogo:", e));
 
-     fetch('/api/bcv')
-       .then(res => res.json())
-       .then(data => { if(data.bcv) setBcvRate(data.bcv); })
-       .catch(() => console.error('BCV Fail, usando 36.50 fallback'));
-  }, []);
+         fetch('/api/bcv')
+             .then(res => res.json())
+             .then(data => { if(data.bcv) setBcvRate(data.bcv); })
+             .catch(() => console.error('BCV Fail, usando 36.50 fallback'));
+    }, []);
 
   // 2. Fetch de Horas Clínicas (Mandar Date + Duracion)
   useEffect(() => {
     if (selectedDate && selectedService) {
-      setLoadingSlots(true); setSelectedSlot(null);
-      const isoDate = selectedDate.toISOString();
-      fetch(`/api/availability?date=${isoDate}&duration=${selectedService.duracion_mins}`)
-        .then(res => res.json())
-        .then(data => { setAvailableSlots(data.slots || []); setLoadingSlots(false); })
-        .catch(e => { console.error(e); setLoadingSlots(false); });
+            setSelectedSlot(null);
+            setBookingErrorMsg('');
+            setBookingStatus('idle');
+            void refreshAvailability(selectedDate, selectedService, setAvailableSlots, setLoadingSlots);
+        } else {
+            setAvailableSlots([]);
     }
   }, [selectedDate, selectedService]);
 
   const handleBooking = async () => {
      if (!selectedSlot || !email || !name || !selectedService) return;
      setBookingStatus('submitting');
+         setBookingErrorMsg('');
      try {
        const res = await fetch('/api/bookings', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -117,10 +138,23 @@ export function BookingEngine() {
           })
        });
        const data = await res.json();
-       if(res.ok && data.citaId) {
+             if(res.ok && data.citaId) {
            setCitaId(data.citaId); setBookingStatus('success');
-       } else setBookingStatus('error');
-     } catch (e) { setBookingStatus('error'); }
+             } else if (res.status === 409) {
+                     setBookingStatus('conflict');
+                     setBookingErrorMsg(data.message || 'Ese horario ya no está disponible.');
+                     setSelectedSlot(null);
+                     if (selectedDate && selectedService) {
+                         void refreshAvailability(selectedDate, selectedService, setAvailableSlots, setLoadingSlots);
+                     }
+             } else {
+                     setBookingStatus('error');
+                     setBookingErrorMsg(data.error || 'No se pudo completar la reserva.');
+             }
+         } catch (e) {
+             setBookingStatus('error');
+             setBookingErrorMsg('Error de conectividad.');
+         }
   };
 
   const handlePago = async () => {
@@ -297,6 +331,21 @@ export function BookingEngine() {
       );
   }
 
+  if (bookingStatus === 'conflict') {
+      return (
+          <div className="flex min-h-[500px] w-full flex-col items-center justify-center rounded-3xl border border-border/60 bg-card p-8 text-center shadow-xl animate-in fade-in zoom-in duration-500">
+              <div className="mb-6 h-20 w-20 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-3xl">!</div>
+              <h3 className="text-3xl font-bold mb-3">Ese horario ya fue tomado</h3>
+              <p className="text-muted-foreground text-lg mb-8 max-w-xl">
+                  {bookingErrorMsg || 'El turno cambió mientras confirmabas. Ya actualizamos la disponibilidad para que puedas elegir otro horario sin volver a empezar.'}
+              </p>
+              <Button onClick={() => { setBookingStatus('idle'); setBookingErrorMsg(''); }} variant="outline">
+                  Elegir otro horario
+              </Button>
+          </div>
+      );
+  }
+
   // PANTALLA A - PASO 1 (MÚLTIPLES SERVICIOS)
   if (!selectedService) {
       return (
@@ -353,6 +402,11 @@ export function BookingEngine() {
         {!selectedDate && <div className="flex-grow flex items-center justify-center text-muted-foreground italic h-40 bg-secondary/20 rounded-xl border border-dashed text-sm">Dicta un día a la izquierda</div>}
         {selectedDate && loadingSlots && <div className="flex-grow flex items-center justify-center text-primary h-40 font-medium animate-pulse text-sm">Trazando bloques disponibles según reglas de anticipación...</div>}
         {selectedDate && !loadingSlots && !selectedSlot && availableSlots.length === 0 && <div className="flex-grow flex flex-col items-center justify-center text-muted-foreground text-center h-40 bg-red-50/50 rounded-xl border border-red-100 p-6 opacity-70"><span className="text-xl mb-1">🗓️</span>Jornada Inhabilitada. Límite de pacientes superado o Anticipación restringida.</div>}
+        {bookingErrorMsg && bookingStatus !== 'success' && bookingStatus !== 'submitting' && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {bookingErrorMsg}
+            </div>
+        )}
         
         {selectedDate && !loadingSlots && !selectedSlot && availableSlots.length > 0 && (
             <div className="grid grid-cols-2 gap-3 overflow-y-auto pr-2">
