@@ -9,3 +9,4 @@
 - [x] Sembrar configuración clínica inicial después del reset.
 - [x] Corregir desfase horario UTC en disponibilidad/reservas para respetar jornada clínica (Caracas).
 - [x] Sincronizar Google Calendar al confirmar/cancelar citas e invitar al paciente por email.
+- [x] Mostrar valores de citas en admin con fallback a pagos y preservar servicio/precio al crear reserva.
