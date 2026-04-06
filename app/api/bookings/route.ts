@@ -19,6 +19,162 @@ interface BookingRequestBody {
    servicio_precio?: number;
 }
 
+interface SupabaseLikeError {
+   code?: string;
+   message?: string;
+}
+
+function isSupabaseError(error: unknown): error is SupabaseLikeError {
+   return Boolean(error) && typeof error === 'object';
+}
+
+async function findAuthUserIdByEmail(email: string): Promise<string | null> {
+   let page = 1;
+   const perPage = 200;
+
+   while (true) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+      if (error) {
+         throw error;
+      }
+
+      const users = data.users || [];
+      const found = users.find((user) => (user.email || '').toLowerCase() === email.toLowerCase());
+      if (found?.id) {
+         return found.id;
+      }
+
+      if (users.length < perPage) {
+         break;
+      }
+
+      page += 1;
+   }
+
+   return null;
+}
+
+async function ensurePatientRecord(params: { email: string; name: string; telefono?: string }): Promise<string> {
+   const { email, name, telefono } = params;
+
+   const { data: pacienteRecord, error: pacienteError } = await supabaseAdmin
+      .from('pacientes')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+   if (pacienteError && pacienteError.code !== 'PGRST116') {
+      throw pacienteError;
+   }
+
+   let authUserId = pacienteRecord?.id;
+
+   if (!authUserId) {
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+         email,
+         password: crypto.randomBytes(16).toString('hex'),
+         email_confirm: true,
+      });
+
+      if (createError) {
+         const fallbackUserId = await findAuthUserIdByEmail(email);
+         if (!fallbackUserId) {
+            throw createError;
+         }
+         authUserId = fallbackUserId;
+      } else {
+         authUserId = newUser.user.id;
+      }
+
+      const { error: insertPacienteError } = await supabaseAdmin.from('pacientes').insert({
+         id: authUserId,
+         email,
+         nombre_completo: name,
+         telefono: telefono || null,
+      });
+
+      if (insertPacienteError && insertPacienteError.code !== '23505') {
+         throw insertPacienteError;
+      }
+   } else if (telefono) {
+      const { error: updatePacienteError } = await supabaseAdmin
+         .from('pacientes')
+         .update({ telefono })
+         .eq('id', authUserId);
+
+      if (updatePacienteError) {
+         throw updatePacienteError;
+      }
+   }
+
+   return authUserId;
+}
+
+async function insertBookingRow(params: {
+   pacienteId: string;
+   provisionalGoogleEventId: string;
+   slotStart: string;
+   slotEnd: string;
+   servicioId?: string;
+   servicioNombre?: string;
+   servicioPrecio?: number;
+}): Promise<string> {
+   const {
+      pacienteId,
+      provisionalGoogleEventId,
+      slotStart,
+      slotEnd,
+      servicioId,
+      servicioNombre,
+      servicioPrecio,
+   } = params;
+
+   const completeInsert = await supabaseAdmin
+      .from('citas')
+      .insert({
+         paciente_id: pacienteId,
+         calendly_event_id: provisionalGoogleEventId,
+         fecha_inicio: slotStart,
+         fecha_fin: slotEnd,
+         estado: 'pending_payment',
+         servicio_id: servicioId,
+         servicio_nombre: servicioNombre,
+         precio_final: servicioPrecio,
+      })
+      .select('id')
+      .single();
+
+   if (!completeInsert.error && completeInsert.data?.id) {
+      return completeInsert.data.id;
+   }
+
+   if (completeInsert.error?.code === '23P01') {
+      throw completeInsert.error;
+   }
+
+   const fallbackInsert = await supabaseAdmin
+      .from('citas')
+      .insert({
+         paciente_id: pacienteId,
+         calendly_event_id: provisionalGoogleEventId,
+         fecha_inicio: slotStart,
+         fecha_fin: slotEnd,
+         estado: 'pending_payment',
+      })
+      .select('id')
+      .single();
+
+   if (fallbackInsert.error) {
+      throw fallbackInsert.error;
+   }
+
+   if (!fallbackInsert.data?.id) {
+      throw new Error('No se pudo persistir la cita');
+   }
+
+   return fallbackInsert.data.id;
+}
+
 async function buildBookingBusyIntervals(targetDate: Date, config: ClinicConfig): Promise<BusyInterval[]> {
    const busyIntervals = buildBusyIntervals(targetDate, config);
 
@@ -110,72 +266,30 @@ export async function POST(req: Request) {
          return conflictResponse();
       }
 
-    // 1. SUPABASE AUTH & DB
-      const { data: pacienteRecord, error: pacienteError } = await supabaseAdmin
-      .from('pacientes')
-      .select('id')
-      .eq('email', email)
-      .single();
-
-      if (pacienteError && pacienteError.code !== 'PGRST116') {
-         throw pacienteError;
-      }
-        
-    let authUserId = pacienteRecord?.id;
-
-    if (!authUserId) {
-       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-         email: email,
-         password: crypto.randomBytes(16).toString('hex'), 
-         email_confirm: true,
-       });
-       if (createError) throw createError;
-       authUserId = newUser.user.id;
-       
-          const { error: insertPacienteError } = await supabaseAdmin.from('pacientes').insert({
-         id: authUserId,
-         email: email,
-         nombre_completo: name,
-         telefono: telefono || null,
-       });
-          if (insertPacienteError) {
-             throw insertPacienteError;
-          }
-    } else if (telefono) {
-       // Si ya existía pero no tenía teléfono, actualizarlo
-          const { error: updatePacienteError } = await supabaseAdmin.from('pacientes').update({ telefono }).eq('id', authUserId);
-          if (updatePacienteError) {
-             throw updatePacienteError;
-          }
-    }
+      const authUserId = await ensurePatientRecord({
+         email,
+         name,
+         telefono,
+      });
 
       const provisionalGoogleEventId = `pending-${crypto.randomUUID()}`;
-      const { data: citaRes, error: citaError } = await supabaseAdmin
-         .from('citas')
-         .insert({
-            paciente_id: authUserId,
-            calendly_event_id: provisionalGoogleEventId,
-            fecha_inicio: slot.start,
-            fecha_fin: slot.end,
-            estado: 'pending_payment',
-            servicio_id: servicio_id,
-            servicio_nombre: servicio_nombre,
-            precio_final: servicio_precio,
-         })
-         .select('id')
-         .single();
+      let citaId: string;
 
-      if (citaError) {
-         if (citaError.code === '23P01') {
-            return conflictResponse();
-         }
-
-         throw citaError;
-      }
-
-      const citaId = citaRes?.id;
-      if (!citaId) {
-         return NextResponse.json({ error: 'No se pudo crear la cita' }, { status: 500 });
+      try {
+        citaId = await insertBookingRow({
+          pacienteId: authUserId,
+          provisionalGoogleEventId,
+          slotStart: slot.start,
+          slotEnd: slot.end,
+          servicioId: servicio_id,
+          servicioNombre: servicio_nombre,
+          servicioPrecio: servicio_precio,
+        });
+      } catch (insertError) {
+        if (isSupabaseError(insertError) && insertError.code === '23P01') {
+          return conflictResponse();
+        }
+        throw insertError;
       }
 
       const client = getCalendarClient();
@@ -229,6 +343,11 @@ export async function POST(req: Request) {
 
       if (error && typeof error === 'object' && Reflect.get(error as Record<string, unknown>, 'code') === '23P01') {
          return conflictResponse();
+      }
+
+      if (isSupabaseError(error)) {
+        const message = error.message || 'Server Error during booking';
+        return NextResponse.json({ error: message }, { status: 500 });
       }
 
       return NextResponse.json({ error: 'Server Error during booking' }, { status: 500 });
