@@ -1,0 +1,114 @@
+{
+  "slots": [],
+  "dayStart": "2026-04-08T13:00:00.000Z",
+  "dayEnd": "2026-04-08T21:00:00.000Z",
+  "busyIntervals": [
+    {
+      "start": "2026-04-08T07:00:00.000Z",
+      "end": "2026-04-08T22:00:00.000Z"
+    }
+  ],
+  "config": {
+    "tiempo_descanso_mins": 15,
+    "anticipacion_minima_horas": 24,
+    "anticipacion_maxima_dias": 30,
+    "datos_bancarios": {
+      "efectivo": {
+        "activo": true,
+        "instrucciones": "Pagar antes de entrar a la consulta"
+      },
+      "pagoMovil": {
+        "banco": "Banco de Venezuela (0102)",
+        "activo": true,
+        "cedula": "V-27832025",
+        "telefono": "0424-8891670"
+      },
+      "transferencia": {
+        "banco": "Banco de Venezuela",
+        "activo": true,
+        "cuenta": "0102-XXXX-XXXX-XXXX-XXXX",
+        "titular": "Khristian Ali",
+        "identificacion": "V-27832025"
+      }
+    },
+    "servicios": [
+      {
+        "id": "c1a-2",
+        "nombre": "Psicoterapia Individual",
+        "precio": 40,
+        "duracion_mins": 50
+      },
+      {
+        "id": "d1e-5",
+        "nombre": "Terapia de Pareja",
+        "precio": 60,
+        "duracion_mins": 75
+      }
+    ],
+    "horario_habitual": {
+      "0": {
+        "fin": "13:00",
+        "activo": false,
+        "inicio": "09:00",
+        "descansos": []
+      },
+      "1": {
+        "fin": "18:00",
+        "activo": true,
+        "inicio": "09:00",
+        "descansos": [
+          {
+            "fin": "14:00",
+            "inicio": "12:00"
+          }
+        ]
+      },
+      "2": {
+        "fin": "17:00",
+        "activo": true,
+        "inicio": "09:00",
+        "descansos": []
+      },
+      "3": {
+        "fin": "17:00",
+        "activo": true,
+        "inicio": "09:00",
+        "descansos": []
+      },
+      "4": {
+        "fin": "17:00",
+        "activo": true,
+        "inicio": "09:00",
+        "descansos": []
+      },
+      "5": {
+        "fin": "17:00",
+        "activo": true,
+        "inicio": "09:00",
+        "descansos": []
+      },
+      "6": {
+        "fin": "13:00",
+        "activo": false,
+        "inicio": "09:00",
+        "descansos": []
+      }
+    },
+    "bloqueos_especificos": [
+      {
+        "fin": "",
+        "fecha": "2026-04-12",
+        "inicio": "",
+        "todo_el_dia": true
+      },
+      {
+        "fin": "18:00",
+        "fecha": "2026-04-08",
+        "inicio": "03:00",
+        "todo_el_dia": false
+      }
+    ],
+    "id": "bf693ba0-25db-44ef-bb23-244bcca42c25",
+    "updated_at": "2026-04-06T13:09:15.680821+00:00"
+  }
+}

@@ -1,0 +1,36 @@
+Γû▓ Next.js 16.2.2 (Turbopack)
+
+  Creating an optimized production build ...
+Error: Cannot apply unknown utility class `border-border`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    [at onInvalidCandidate (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:21:1314)]
+    [at Ee (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:16:37066)]
+    [at C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:21:355]
+    [at _r (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:3:1733)]
+    [at I (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:3:1377)]
+    [at Te (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:21:172)]
+    [at mn (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:38:294)]
+    [at process.processTicksAndRejections (node:internal/process/task_queues:104:5)]
+    [at async gn (C:\Users\Khris\Portfolio\citas\node_modules\tailwindcss\dist\lib.js:38:631)]
+    [at async Xr (C:\Users\Khris\Portfolio\citas\node_modules\@tailwindcss\node\dist\index.js:10:3416)]
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./app/globals.css
+Error evaluating Node.js code
+CssSyntaxError: tailwindcss: C:\Users\Khris\Portfolio\citas\app\globals.css:1:1: Cannot apply unknown utility class `border-border`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    at Input.error (node_modules/postcss/lib/input.js:135:16) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\node_modules_13sb.px._.js:4651:22]
+    at error (node_modules/postcss/lib/node.js:146:32) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\node_modules_13sb.px._.js:928:38]
+    [at Object.Once (C:\Users\Khris\Portfolio\citas\node_modules\@tailwindcss\postcss\dist\index.js:10:6913)]
+    [at process.processTicksAndRejections (node:internal/process/task_queues:104:5)]
+    at async LazyResult.runAsync (node_modules/postcss/lib/lazy-result.js:293:11) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\node_modules_13sb.px._.js:6214:21]
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\[root-of-the-server]__0d-m0h0._.js:146:36]
+    at async run (turbopack:///[turbopack-node]/child_process/evaluate.ts:89:23) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\[root-of-the-server]__0ubbtyl._.js:443:31]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\[root-of-the-server]__0d-m0h0._.js:146:36])
+    at async run (turbopack:///[turbopack-node]/child_process/evaluate.ts:89:23) [C:\Users\Khris\Portfolio\citas\.next\build\chunks\[root-of-the-server]__0ubbtyl._.js:443:31])

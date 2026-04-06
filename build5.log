@@ -1,0 +1,21 @@
+Γû▓ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 11.1s
+  Running TypeScript ...
+  Finished TypeScript in 10.3s ...
+  Collecting page data using 7 workers ...
+Faltan credenciales cr├¡ticas de Supabase (URL o SERVICE_ROLE) en el entorno.
+Error: supabaseUrl is required.
+    at instantiateModule (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:853:9)
+    at instantiateRuntimeModule (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:882:12)
+    at getOrInstantiateRuntimeModule (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:895:12)
+    at Object.m (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:898:18)
+    at Object.<anonymous> (C:\Users\Khris\Portfolio\citas\.next\server\app\api\bookings\route.js:7:3)
+
+> Build error occurred
+Error: Failed to collect page data for /api/bookings
+    at ignore-listed frames {
+  type: 'Error'
+}

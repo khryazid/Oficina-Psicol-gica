@@ -1,0 +1,23 @@
+Γû▓ Next.js 16.2.2 (Turbopack)
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 2.7s
+  Running TypeScript ...
+  Finished TypeScript in 2.1s ...
+  Collecting page data using 7 workers ...
+Faltan credenciales cr├¡ticas de Supabase (URL o SERVICE_ROLE) en el entorno.
+Error: supabaseUrl is required.
+    at <unknown> (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[root-of-the-server]__06pzgbe._.js:37:43441)
+    at new rB (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[root-of-the-server]__06pzgbe._.js:37:43692)
+    at module evaluation (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[root-of-the-server]__06pzgbe._.js:37:48224)
+    at instantiateModule (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:853:9)
+    at instantiateRuntimeModule (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:882:12)
+    at getOrInstantiateRuntimeModule (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:895:12)
+    at Object.m (C:\Users\Khris\Portfolio\citas\.next\server\chunks\[turbopack]_runtime.js:898:18)
+    at Object.<anonymous> (C:\Users\Khris\Portfolio\citas\.next\server\app\api\webhooks\calendly\route.js:6:3)
+
+> Build error occurred
+Error: Failed to collect page data for /api/webhooks/calendly
+    at ignore-listed frames {
+  type: 'Error'
+}
